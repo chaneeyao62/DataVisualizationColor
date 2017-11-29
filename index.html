@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+<title>PSYCH 3420 Human Perception Project</title>
+</head>
+<style type="text/css">
+*
+{
+text-align: center;
+margin: auto;
+}
+footer{
+  color:white;
+  margin-top: 10em;
+}
+footer p{
+  color:white;
+  font-size: 85%;
+}
+text {
+  font: 10px sans-serif;
+  color:white;
+}
+h1 {
+  color:white;
+  margin-top: 1.5em;
+  font-size: 300%;
+}
+h2 {
+  color:white;
+  margin-top: 3em;
+  font-size: 160%;
+}
+
+p {
+  color:white;
+  width: 800px;
+  margin-bottom: 5em;
+  font-size: 120%;
+}
+body {background-color: black;}
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+svg text{
+  fill:white;
+  font-size:11px;
+}
+svg .values text{
+  pointer-events:none;
+  stroke-width: 0.5px;
+}
+.groups:hover{
+  cursor:pointer;
+  font-weight:bold;
+}
+
+</style>
+<body>
+<h1>
+PSYCH 3420 Human Perception Project
+</h1>
+<h2>
+Data Visualization 1: Color Terms
+</h2>
+<div id = "d1">
+</div>
+<p>
+Color terms are interesting in natural language processing because it’s an area where it’s possible to link distributional semantics (models of word meanings based on which words are used together in texts) to things in the world. The data visualization was created to have a general understanding and classify the literal and nonliteral colors. <br><br>
+This dataset is made up of color adjective-noun phrases, randomly drawn from the most frequent 8K nouns and 4K adjectives in the concatenated ukWaC, Wackypedia, and BNC corpora. These were tagged by consensus by two human judges as literal (white towel, black feather) or nonliteral (white wine, white musician, green future). Some phrases had both literal and nonliteral uses, such as blue book in “book that is blue” vs. “automobile price guide”. In these cases, only the most common sense (according to the judges) was taken into account for the present experiment (data and parts of the description  from <a href="https://www.kaggle.com/rtatman/color-terms-dataset">Kaggle.com</a>). <br><br>
+<b>Hover the mouse over dots and drag a dot to see interactive effects.</b>
+</p>
+<h2>
+Data Visualization 2: World Color Survey
+</h2>
+<div id = "d2">
+</div>
+<div id = "d3">
+  <p>
+    The visualization was created to map between different colors after a ligustic transition. Each participant was given a color from the WCS Mapping Table below and was asked to name the color. Later, given the name of the color, partipipants was asked to choose a color from color chips that matches the name. <br><br>
+    Datasets and full descriptions about the experiment can found: <a href="http://www.icsi.berkeley.edu/wcs/data.html">www.icsi.berkeley.edu/wcs/data.html</a>
+    The visualization only visualized a part of the full dataset due to large number of records and manual data clean-up work. It only includes data from 1 language setting (lang#1). For the simplicity purpose, only colors from the fifth row in the WCS Mapping Table were selected, which also means the visualization only presents the mismatch/match between colors of different hues while ignoring the brightness. <br><br>
+  </p>
+  <img src="WCS.png" alt="HTML5 Icon" style="width:1000px;">
+</div>
+
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+<script src="http://vizjs.org/viz.v1.1.0.min.js"></script>
+<script>
+
+
+
+var width = 800,
+    height = 800,
+    padding = 5, // separation between same-color nodes
+    clusterPadding = 50, // separation between different-color nodes
+    maxRadius = 12;
+
+var color_LN = d3.scale.ordinal()
+      .range(["blue", "yellow"]);
+
+var color_gen = d3.scale.ordinal()
+      .range(["#0269fbdb", "rgba(121, 85, 72, 0.86)", "#ffeb3be3", "rgba(118, 216, 4, 0.86)", "#8a89897d", "#ffffffcc", "#ff0000e6"]);
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([-10, 0])
+  .html(function(d) {
+    return "<strong><span style='color:white'>" + d.text + "</strong> </span>";
+  })
+
+
+d3.text("literal-nonliteral-uses.csv", function(error, text) {
+  if (error) throw error;
+  var colNames = "text,color,group\n" + text;
+  var data = d3.csv.parse(colNames);
+
+  // data.forEach(function(d) {
+  //   d.size = +d.size;
+  // });
+
+
+//unique cluster/group id's
+var cs = [];
+data.forEach(function(d){
+        if(!cs.contains(d.group)) {
+            cs.push(d.group);
+        }
+});
+
+var cs2 = [];
+data.forEach(function(d){
+        if(!cs2.contains(d.color)) {
+            cs2.push(d.color);
+        }
+});
+
+var n = data.length, // total number of nodes
+    //m = cs.length; // number of distinct clusters
+    m = cs2.length;
+
+//create clusters and nodes
+var clusters = new Array(m);
+var nodes = [];
+for (var i = 0; i<n; i++){
+    nodes.push(create_nodes(data,i));
+}
+
+var force = d3.layout.force()
+    .nodes(nodes)
+    .size([width, height])
+    .gravity(.02)
+    .charge(0)
+    .on("tick", tick)
+    .start();
+
+var svg = d3.select("#d1").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+svg.call(tip);
+
+var node = svg.selectAll("circle")
+    .data(nodes)
+    .enter().append("g").call(force.drag);
+
+
+node.append("circle")
+    .style("fill", function (d) {
+    return color_gen(d.cluster);
+    })
+    .style("stroke", "rgba(255, 223, 0, 0.53)") 
+    .style("stroke-width", function(d){return d.cluster2 * 8})  
+    .attr("r", function(d){return d.radius})
+    .on('mouseover', tip.show)
+    .on('mouseout', tip.hide);
+    
+var legend = svg.append("circle")
+    .attr("cx", 80)
+    .attr("cy", 725)
+    .attr("r", 8)
+    .style("stroke", "rgba(255, 223, 0, 0.53)")
+    .style("stroke-width", 8);
+
+var legend_text = svg.append("text")
+    .attr("x", "100")
+    .attr("y", "736")
+    .text( "Non-literal")
+    .style("font-size", "20px")
+    .style("fill", "white");
+
+
+
+function create_nodes(data,node_counter) {
+  var 
+      i0 = cs.indexOf(data[node_counter].group),
+      i = cs2.indexOf(data[node_counter].color),
+      r = Math.sqrt((i + 1) / m * -Math.log(Math.random())) * maxRadius,
+      // x_pos = (data[node_counter].color == "blue") ? (1) : ((data[node_counter].color == "yellow") ? (2) : (3))
+      d = {
+        cluster: i,
+        cluster2: i0,
+        //radius: data[node_counter].size*1.5,
+        radius: 8,
+        text: data[node_counter].text,
+        x: Math.sin(i / m * 2 * Math.PI) * 200 + height / 2 + Math.random(),
+        y: Math.cos(i / m * 2 * Math.PI) * 200 + width / 2 + Math.random()
+      };
+      //console.log(i0);
+      //console.log(data[node_counter]);
+  if (!clusters[i] || (r > clusters[i].radius)) clusters[i] = d;
+  return d;
+};
+
+
+
+function tick(e) {
+    node.each(cluster(10 * e.alpha * e.alpha))
+        .each(collide(.5))
+    .attr("transform", function (d) {
+        var k = "translate(" + d.x + "," + d.y + ")";
+        return k;
+    })
+
+}
+
+// Move d to be adjacent to the cluster node.
+function cluster(alpha) {
+    return function (d) {
+        var cluster = clusters[d.cluster];
+        if (cluster === d) return;
+        var x = d.x - cluster.x,
+            y = d.y - cluster.y,
+            l = Math.sqrt(x * x + y * y),
+            r = d.radius + cluster.radius;
+        if (l != r) {
+            l = (l - r) / l * alpha;
+            d.x -= x *= l;
+            d.y -= y *= l;
+            cluster.x += x;
+            cluster.y += y;
+        }
+    };
+}
+
+// Resolves collisions between d and all other circles.
+function collide(alpha) {
+    var quadtree = d3.geom.quadtree(nodes);
+    return function (d) {
+        var r = d.radius + maxRadius + Math.max(padding, clusterPadding),
+            nx1 = d.x - r,
+            nx2 = d.x + r,
+            ny1 = d.y - r,
+            ny2 = d.y + r;
+        quadtree.visit(function (quad, x1, y1, x2, y2) {
+            if (quad.point && (quad.point !== d)) {
+                var x = d.x - quad.point.x,
+                    y = d.y - quad.point.y,
+                    l = Math.sqrt(x * x + y * y),
+                    r = d.radius + quad.point.radius + (d.cluster === quad.point.cluster ? padding : clusterPadding);
+                if (l < r) {
+                    l = (l - r) / l * alpha;
+                    d.x -= x *= l;
+                    d.y -= y *= l;
+                    quad.point.x += x;
+                    quad.point.y += y;
+                }
+            }
+            return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+        });
+    };
+}
+});
+
+Array.prototype.contains = function(v) {
+    for(var i = 0; i < this.length; i++) {
+        if(this[i] === v) return true;
+    }
+    return false;
+};
+
+</script>
+
+<script>
+
+var data2 = [
+['F0','F0',0]
+,['F2','F2',4]
+,['F4','F2',4]
+,['F6','F2',3]
+,['F8','F2',3]
+,['F8','F2',1]
+,['F10','F2',2]
+,['F10','F6',1]
+,['F10','F24',1]
+,['F12','F10',1]
+,['F12','F0',1]
+,['F12','F6',1]
+,['F12','F12',3]
+,['F14','F6',1]
+,['F14','F16',1]
+,['F14','F0',1]
+,['F16','F12',2]
+,['F16','F0',1]
+,['F16','F6',1]
+,['F18','F0',1]
+,['F18','F12',1]
+,['F22','F16',1]
+,['F22','F6',1]
+,['F22','F12',1]
+,['F22','F0',1]
+,['F24','F24',1]
+,['F26','F0',1]
+,['F32','F16',1]
+,['F32','F2',1]
+,['F32','F6',1]
+,['F32','F12',1]
+,['F34','F2',1]
+,['F34','F0',1]
+,['F34','F6',1]
+,['F36','F2',4]
+,['F38','F2',4]
+,['F40','F2',3]
+
+];
+
+var colors = {
+"F2":         "#db414a"
+,"F4":    "#d8492f"
+,"F6":    "#b96326"
+,"F8":        "#a46e1f"
+,"F10": "#92771a"
+,"F12":        "#807d13"
+,"F14": "#678416"
+,"F16":      "#488f24"
+,"F18":"#438b62"
+,"F20": "#418a72"
+,"F22":  "#3e8882"
+,"F24":   "#3c8790"
+,"F26":    "#38859f"
+,"F28":     "#3282b2"
+,"F30":     "#267ccc"
+,"F32":   "#7b6fb9"
+,"F34":      "#9567ad"
+,"F36":        "#b357a2"
+,"F38":  "#c64f85"
+,"F40":   "#d84069"
+,"F0": "rgb(255, 255, 255)"
+};
+
+var sortOrder =[
+"F2"
+,"F4"
+,"F6"
+,"F8"
+,"F10"
+,"F12"
+,"F14"
+,"F16"
+,"F18"
+,"F20"
+,"F22"
+,"F24"
+,"F26"
+,"F28"
+,"F30"
+,"F32"
+,"F34"
+,"F36"
+,"F38"
+,"F40"
+,"F0"
+];
+
+function sort(a,b){ return d3.ascending(sortOrder.indexOf(a),sortOrder.indexOf(b)); }
+
+var ch = viz.ch().data(data2)
+      .padding(.01)
+      .sort(sort)
+      .innerRadius(290)
+      .outerRadius(330)
+      .duration(1000)
+      .chordOpacity(0.3)
+      .labelPadding(.03)
+      .fill(function(d){ return colors[d];});
+
+var width2=1200, height2=1100;
+
+var svg2 = d3.select("#d2").append("svg").attr("height",height2).attr("width",width2);
+
+svg2.append("g").attr("transform", "translate(600,550)").call(ch);
+
+// adjust height of frame in bl.ocks.org
+d3.select(self.frameElement).style("height", height+"px").style("width", width+"px");     
+</script>
+</body>
+<footer>
+  <p>Created by: Qianyan Yao <br>
+  Contact Information:
+  <a href="mailto:qy62@cornell.edu" target="_top">qy62@cornell.edu</a> <br>
+  Code Reference: <a href="https://bl.ocks.org/mbostock/3231298">Collision Detection</a>
+  <a href="http://bl.ocks.org/NPashaP/ba4c802d5ef68f70c019a9706f77ebf1">Chord</a>  
+  </p>
+</footer>
